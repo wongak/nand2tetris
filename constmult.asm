@@ -1,5 +1,7 @@
 // multiplies R[0] and R[1]
 // result in R[2]
+//
+// bounded multiplication while simulating bitshifts
 
 	@i
 	M=0 // i = 0
