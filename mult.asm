@@ -1,5 +1,7 @@
 // multiplies RAM[0] * RAM[1]
 // puts the result in RAM[2]
+//
+// naive implementation with adding in a loop
 
 	@R0
 	D=M
