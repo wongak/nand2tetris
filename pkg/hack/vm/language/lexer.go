@@ -16,9 +16,13 @@ const (
 
 	VALUE
 
+	// operations
+
+	// with parameters
 	PUSH
 	POP
 
+	// stack operations
 	ADD
 	SUB
 	NEG
@@ -159,10 +163,51 @@ func (s *Scanner) scanIdent() (tok Token, lit string, err error) {
 		}
 	}
 
-	switch buf.String() {
-	case "push":
-		return PUSH, buf.String(), nil
-	}
+	return mapIdent(buf.String()), buf.String(), nil
+}
 
-	return VALUE, buf.String(), nil
+func mapIdent(str string) Token {
+	switch str {
+	case "push":
+		return PUSH
+	case "pop":
+		return POP
+
+	case "add":
+		return ADD
+	case "sub":
+		return SUB
+	case "neg":
+		return NEG
+	case "eq":
+		return EQ
+	case "gt":
+		return GT
+	case "lt":
+		return LT
+	case "and":
+		return AND
+	case "or":
+		return OR
+	case "not":
+		return NOT
+
+	case "constant":
+		return CONSTANT
+	case "static":
+		return STATIC
+	case "local":
+		return LOCAL
+	case "argument":
+		return ARGUMENT
+	case "this":
+		return THIS
+	case "that":
+		return THAT
+	case "temp":
+		return TEMP
+	case "pointer":
+		return POINTER
+	}
+	return VALUE
 }
