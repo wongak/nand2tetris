@@ -50,7 +50,7 @@ const (
 //     A=M
 //     M=D // *SP=*addr
 //     @0
-//     M=M-1
+//     M=M+1
 //
 // push constant i
 //
