@@ -2,7 +2,9 @@ package language
 
 import (
 	"fmt"
+	"io"
 	"strconv"
+	"text/template"
 )
 
 // Segment describes a memory segment to be accessed
@@ -26,23 +28,58 @@ func (m *MemoryAccess) String() string {
 }
 
 // Translate translates the VM command to assembly
-func (m *MemoryAccess) Translate(cfg TranslateConfig) string {
+func (m *MemoryAccess) Translate(cfg TranslateConfig, wr io.Writer) {
 	data := map[string]string{
 		"cmdLit":    m.lit,
 		"segLit":    m.seg.segLit,
 		"indexLit":  m.seg.indexLit,
 		"segSymbol": m.seg.seg.String(),
 	}
+	var tmpl *template.Template
+	if m.accessComamnd == PUSH {
+		tmpl = memoryPushSegmentTmpl
+	} else {
+		tmpl = memoryPopSegmentTmpl
+	}
 	// TEMP segment on R5 - R12
 	if m.seg.seg == TEMP {
 		data["segSymbol"] = "R5"
+		if m.accessComamnd == PUSH {
+			tmpl = memoryPushTempTmpl
+		} else {
+			tmpl = memoryPopTempTmpl
+		}
 	}
 	// STATIC as assembly variable Filename.i
 	if m.seg.seg == STATIC {
-		data["segSymbol"] = cfg.fileName + "." + m.seg.indexLit
+		data["staticVar"] = cfg.FileName + "." + m.seg.indexLit
+		if m.accessComamnd == PUSH {
+			tmpl = memoryPushStaticTmpl
+		} else {
+			tmpl = memoryPopStaticTmpl
+		}
 	}
-	_ = data
-	return ""
+	// CONSTANT
+	if m.seg.seg == CONSTANT {
+		tmpl = memoryPushConstantTmpl
+	}
+	// POINTER
+	if m.seg.seg == POINTER {
+		if m.seg.index == 0 {
+			data["segSymbol"] = "THIS"
+		} else {
+			data["segSymbol"] = "THAT"
+		}
+		if m.accessComamnd == PUSH {
+			tmpl = memoryPushPointerTmpl
+		} else {
+			tmpl = memoryPopPointerTmpl
+		}
+	}
+	err := tmpl.Execute(wr, data)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func parseMemoryAccess(p *Parser) stateFunc {

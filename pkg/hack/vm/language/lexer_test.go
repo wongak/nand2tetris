@@ -178,6 +178,65 @@ func ProvideMemoryAccessCommands() []testCase {
 				},
 			},
 		},
+		{
+			input: `
+			label ABC
+			push constant 1
+			gt
+			if-goto END
+			goto ABC
+			label END`,
+			expected: []expect{
+				{
+					tok: language.LABEL,
+					lit: "label",
+				},
+				{
+					tok: language.VALUE,
+					lit: "ABC",
+				},
+				{
+					tok: language.PUSH,
+					lit: "push",
+				},
+				{
+					tok: language.CONSTANT,
+					lit: "constant",
+				},
+				{
+					tok: language.VALUE,
+					lit: "1",
+				},
+				{
+					tok: language.GT,
+					lit: "gt",
+				},
+				{
+					tok: language.IFGOTO,
+					lit: "if-goto",
+				},
+				{
+					tok: language.VALUE,
+					lit: "END",
+				},
+				{
+					tok: language.GOTO,
+					lit: "goto",
+				},
+				{
+					tok: language.VALUE,
+					lit: "ABC",
+				},
+				{
+					tok: language.LABEL,
+					lit: "label",
+				},
+				{
+					tok: language.VALUE,
+					lit: "END",
+				},
+			},
+		},
 	}
 }
 

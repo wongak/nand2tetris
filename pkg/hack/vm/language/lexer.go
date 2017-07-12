@@ -65,6 +65,13 @@ func (t Token) String() string {
 	case POINTER:
 		return "POINTER"
 
+	case LABEL:
+		return "LABEL"
+	case IFGOTO:
+		return "IFGOTO"
+	case GOTO:
+		return "GOTO"
+
 	default:
 		return "unknown token"
 	}
@@ -104,12 +111,29 @@ const (
 	THAT
 	TEMP
 	POINTER
+
+	// branching
+	LABEL
+	IFGOTO
+	GOTO
 )
 
 var eof = rune(0)
 
 func isMemoryAccessCommand(tok Token) bool {
 	return tok == PUSH || tok == POP
+}
+
+func isArithmeticCommand(tok Token) bool {
+	return tok == ADD ||
+		tok == SUB ||
+		tok == NEG ||
+		tok == EQ ||
+		tok == GT ||
+		tok == LT ||
+		tok == AND ||
+		tok == OR ||
+		tok == NOT
 }
 
 func isSegment(tok Token) bool {
@@ -253,7 +277,7 @@ func (s *Scanner) scanIdent() (tok Token, lit string, err error) {
 			return ILLEGAL, "", err
 		} else if ch == eof {
 			break
-		} else if !isLetter(ch) {
+		} else if !isLetter(ch) && ch != '-' {
 			err = s.unread()
 			if err != nil {
 				return ILLEGAL, "", err
@@ -357,6 +381,14 @@ func mapIdent(str string) Token {
 		return TEMP
 	case "pointer":
 		return POINTER
+
+	case "label":
+		return LABEL
+	case "goto":
+		return GOTO
+	case "if-goto":
+		return IFGOTO
 	}
+
 	return VALUE
 }

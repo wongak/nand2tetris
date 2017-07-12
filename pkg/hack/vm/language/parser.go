@@ -101,10 +101,13 @@ func top(p *Parser) stateFunc {
 	}
 	switch true {
 	case tok == EOF:
-		return nil
+		return endCmd
 	case isMemoryAccessCommand(tok):
 		p.unscan()
 		return parseMemoryAccess
+	case isArithmeticCommand(tok):
+		p.unscan()
+		return parseArithmetic
 	}
 	return parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
 }
@@ -114,4 +117,9 @@ func command(cmd Command) stateFunc {
 		p.tree = append(p.tree, cmd)
 		return top
 	}
+}
+
+func endCmd(p *Parser) stateFunc {
+	command(end{})(p)
+	return nil
 }
