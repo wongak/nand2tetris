@@ -60,3 +60,52 @@ push pointer 3
 		return
 	}
 }
+
+type parserTestCase struct {
+	input    string
+	expected []func(language.Command) bool
+}
+
+func execParserTestCase(t *testing.T, c parserTestCase) {
+	rd := strings.NewReader(c.input)
+	p := language.NewParser(rd)
+
+	err := p.Run()
+	if err != nil {
+		t.Errorf("error on parsing: %v", err)
+		return
+	}
+
+	cmds := p.Tree()
+	for i, expect := range c.expected {
+		if !expect(cmds[i]) {
+			t.Errorf("error on expectation %d (%+v)", i, cmds[i])
+		}
+	}
+}
+
+func TestLabelParser(t *testing.T) {
+	tst := parserTestCase{
+		input: `
+	function test 0
+	push constant 1
+	label ABC
+	return
+			`,
+		expected: []func(language.Command) bool{
+			func(cmd language.Command) bool {
+				if cmd.String() != "PUSH CONSTANT 1" {
+					return false
+				}
+				return true
+			},
+			func(cmd language.Command) bool {
+				if cmd.String() != "LABEL ABC" {
+					return false
+				}
+				return true
+			},
+		},
+	}
+	execParserTestCase(t, tst)
+}

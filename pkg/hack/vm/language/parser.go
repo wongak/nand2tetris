@@ -32,6 +32,12 @@ func NewParser(r io.Reader) *Parser {
 	}
 }
 
+// ReadNew sets a new reader to read from
+func (p *Parser) ReadNew(r io.Reader) {
+	p.s = NewScanner(r)
+	p.i = -1
+}
+
 func (p *Parser) scan() (tok Token, lit string, err error) {
 	p.i++
 	if p.buf.isUnscanned {
@@ -101,25 +107,29 @@ func top(p *Parser) stateFunc {
 	}
 	switch true {
 	case tok == EOF:
-		return endCmd
+		return nil
 	case isMemoryAccessCommand(tok):
 		p.unscan()
-		return parseMemoryAccess
+		return parseMemoryAccess(nil)
 	case isArithmeticCommand(tok):
 		p.unscan()
-		return parseArithmetic
+		return parseArithmetic(nil)
+	case tok == FUNCTION:
+		p.unscan()
+		return parseFunction
+	case tok == LABEL:
+		return parseError(fmt.Errorf("invalid label token without function context"))
 	}
 	return parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
 }
 
-func command(cmd Command) stateFunc {
+func command(cmd Command, f *Function) stateFunc {
 	return func(p *Parser) stateFunc {
 		p.tree = append(p.tree, cmd)
-		return top
+		if f == nil {
+			return top
+		} else {
+			return parseFunctionBody(f)
+		}
 	}
-}
-
-func endCmd(p *Parser) stateFunc {
-	command(end{})(p)
-	return nil
 }

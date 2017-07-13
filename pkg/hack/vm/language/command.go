@@ -9,24 +9,11 @@ import (
 type Command interface {
 	fmt.Stringer
 
-	Translate(TranslateConfig, io.Writer)
+	Translate(*SymbolTable, io.Writer) error
 }
 
-// TranslateConfig sets the configuration for translating a VM file
-type TranslateConfig struct {
-	FileName string
-}
-
-type end struct {
-}
-
-func (e end) String() string {
-	return "end"
-}
-
-func (e end) Translate(_ TranslateConfig, wr io.Writer) {
-	_, err := wr.Write([]byte(endOp))
-	if err != nil {
-		panic(err)
-	}
-}
+const endOp = `// END
+(END)
+	@END
+	0,JMP
+`

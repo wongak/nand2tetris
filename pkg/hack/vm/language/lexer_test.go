@@ -237,6 +237,55 @@ func ProvideMemoryAccessCommands() []testCase {
 				},
 			},
 		},
+		{
+			input: `
+			function ABC.ef 1
+				push constant 1
+				call B 1
+				return`,
+			expected: []expect{
+				{
+					tok: language.FUNCTION,
+					lit: "function",
+				},
+				{
+					tok: language.VALUE,
+					lit: "ABC.ef",
+				},
+				{
+					tok: language.VALUE,
+					lit: "1",
+				},
+				{
+					tok: language.PUSH,
+					lit: "push",
+				},
+				{
+					tok: language.CONSTANT,
+					lit: "constant",
+				},
+				{
+					tok: language.VALUE,
+					lit: "1",
+				},
+				{
+					tok: language.CALL,
+					lit: "call",
+				},
+				{
+					tok: language.VALUE,
+					lit: "B",
+				},
+				{
+					tok: language.VALUE,
+					lit: "1",
+				},
+				{
+					tok: language.RETURN,
+					lit: "return",
+				},
+			},
+		},
 	}
 }
 

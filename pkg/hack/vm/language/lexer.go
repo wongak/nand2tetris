@@ -72,6 +72,13 @@ func (t Token) String() string {
 	case GOTO:
 		return "GOTO"
 
+	case FUNCTION:
+		return "FUNCTION"
+	case CALL:
+		return "CALL"
+	case RETURN:
+		return "RETURN"
+
 	default:
 		return "unknown token"
 	}
@@ -116,6 +123,11 @@ const (
 	LABEL
 	IFGOTO
 	GOTO
+
+	// functions
+	FUNCTION
+	CALL
+	RETURN
 )
 
 var eof = rune(0)
@@ -151,6 +163,20 @@ func isWhitespace(ch rune) bool {
 
 func isLetter(ch rune) bool {
 	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+// returns true if the character belongs to the class of allowed identifier characters
+func isIdent(ch rune) bool {
+	if isLetter(ch) {
+		return true
+	}
+	if isDigit(ch) {
+		return true
+	}
+	if ch == '.' || ch == '-' {
+		return true
+	}
+	return false
 }
 
 func isDigit(ch rune) bool {
@@ -277,7 +303,7 @@ func (s *Scanner) scanIdent() (tok Token, lit string, err error) {
 			return ILLEGAL, "", err
 		} else if ch == eof {
 			break
-		} else if !isLetter(ch) && ch != '-' {
+		} else if !isIdent(ch) {
 			err = s.unread()
 			if err != nil {
 				return ILLEGAL, "", err
@@ -388,6 +414,13 @@ func mapIdent(str string) Token {
 		return GOTO
 	case "if-goto":
 		return IFGOTO
+
+	case "function":
+		return FUNCTION
+	case "call":
+		return CALL
+	case "return":
+		return RETURN
 	}
 
 	return VALUE
