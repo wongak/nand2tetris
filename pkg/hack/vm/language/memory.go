@@ -174,6 +174,8 @@ type (
 		accessComamnd Token // push or pop
 		lit           string
 		seg           Segment
+
+		file *File
 	}
 )
 
@@ -184,6 +186,11 @@ func (m *MemoryAccess) String() string {
 
 // Translate translates the VM command to assembly
 func (m *MemoryAccess) Translate(t *SymbolTable, wr io.Writer) error {
+	ft, err := t.FileTable(m.file.name)
+	if err != nil {
+		return err
+	}
+
 	data := map[string]string{
 		"cmdLit":    m.lit,
 		"segLit":    m.seg.segLit,
@@ -207,7 +214,7 @@ func (m *MemoryAccess) Translate(t *SymbolTable, wr io.Writer) error {
 	}
 	// STATIC as assembly variable Filename.i
 	if m.seg.seg == STATIC {
-		data["staticVar"] = t.Static(m.seg.index)
+		data["staticVar"] = ft.Static(m.seg.index)
 		if m.accessComamnd == PUSH {
 			tmpl = memoryPushStaticTmpl
 		} else {
@@ -231,88 +238,88 @@ func (m *MemoryAccess) Translate(t *SymbolTable, wr io.Writer) error {
 			tmpl = memoryPopPointerTmpl
 		}
 	}
-	err := tmpl.Execute(wr, data)
+	err = tmpl.Execute(wr, data)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func parseMemoryAccess(f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
-		tok, lit, err := p.scanIgnore()
-		if err != nil {
-			return parseError(err)
-		}
-		if tok != PUSH && tok != POP {
-			return parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
-		}
-		cmd := &MemoryAccess{
-			accessComamnd: tok,
-			lit:           lit,
-		}
-		return parseSegment(cmd, f)
+func parseMemoryAccess(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
+	tok, lit, err := p.scanIgnore()
+	if err != nil {
+		return ctx, parseError(err)
 	}
+	if tok != PUSH && tok != POP {
+		return ctx, parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
+	}
+	cmd := &MemoryAccess{
+		accessComamnd: tok,
+		lit:           lit,
+
+		file: ctx.file,
+	}
+	return ctx, parseSegment(cmd)
 }
 
-func parseSegment(cmd *MemoryAccess, f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
+func parseSegment(cmd *MemoryAccess) stateFunc {
+	return func(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 		tok, lit, err := p.scanIgnore()
 		if err != nil {
-			return parseError(err)
+			return ctx, parseError(err)
 		}
 		if isSegment(tok) {
 			cmd.seg.seg = tok
 			cmd.seg.segLit = lit
-			return parseSegmentIndex(cmd, f)
+			return ctx, parseSegmentIndex(cmd)
 		}
 		if tok == CONSTANT {
 			if cmd.accessComamnd == POP {
-				return parseError(fmt.Errorf("invalid POP on constant"))
+				return ctx, parseError(fmt.Errorf("invalid POP on constant"))
 			}
 			cmd.seg.seg = tok
 			cmd.seg.segLit = lit
-			return parseSegmentIndex(cmd, f)
+			return ctx, parseSegmentIndex(cmd)
 		}
 		if tok == POINTER {
 			cmd.seg.seg = tok
 			cmd.seg.segLit = lit
-			return parsePointerIndex(cmd, f)
+			return ctx, parsePointerIndex(cmd)
 		}
-		return parseError(fmt.Errorf("invalid token %s (%s). expect segment/pointer", tok, lit))
+		return ctx, parseError(fmt.Errorf("invalid token %s (%s). expect segment/pointer", tok, lit))
 	}
 }
 
-func parseSegmentIndex(cmd *MemoryAccess, f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
+func parseSegmentIndex(cmd *MemoryAccess) stateFunc {
+	return func(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 		tok, lit, err := p.scanIgnore()
 		if err != nil {
-			return parseError(err)
+			return ctx, parseError(err)
 		}
 		if tok != VALUE {
-			return parseError(fmt.Errorf("invalid token %s (%s). expect value", tok, lit))
+			return ctx, parseError(fmt.Errorf("invalid token %s (%s). expect value", tok, lit))
 		}
 		i, err := strconv.ParseInt(lit, 10, 64)
 		if err != nil {
-			return parseError(fmt.Errorf("invalid value %s: %s", lit, err))
+			return ctx, parseError(fmt.Errorf("invalid value %s: %s", lit, err))
 		}
 		cmd.seg.index = int(i)
 		cmd.seg.indexLit = lit
 
-		return command(cmd, f)
+		return ctx, command(cmd)
 	}
 }
 
-func parsePointerIndex(cmd *MemoryAccess, f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
+func parsePointerIndex(cmd *MemoryAccess) stateFunc {
+	return func(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 		tok, lit, err := p.scanIgnore()
 		if err != nil {
-			return parseError(err)
+			return ctx, parseError(err)
 		}
 		if lit != "1" && lit != "0" {
-			return parseError(fmt.Errorf("invalid token %s (%s). expect 0 or 1", tok, lit))
+			return ctx, parseError(fmt.Errorf("invalid token %s (%s). expect 0 or 1", tok, lit))
 		}
 		p.unscan()
-		return parseSegmentIndex(cmd, f)
+		return ctx, parseSegmentIndex(cmd)
 	}
 }

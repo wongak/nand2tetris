@@ -173,7 +173,7 @@ func isIdent(ch rune) bool {
 	if isDigit(ch) {
 		return true
 	}
-	if ch == '.' || ch == '-' {
+	if ch == '.' || ch == '-' || ch == '_' {
 		return true
 	}
 	return false

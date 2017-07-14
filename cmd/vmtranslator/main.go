@@ -34,6 +34,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	table := language.NewSymbolTable()
+
 	var outFileName string
 	if info.IsDir() {
 		abs, err := filepath.Abs(info.Name())
@@ -61,6 +63,26 @@ func main() {
 	}
 	defer out.Close()
 
+	if !headless {
+		_, err = out.WriteString(`// BOOT
+@256
+D=A
+@SP
+M=D // SP = 256
+`)
+		if err != nil {
+			fmt.Printf("error writing bootstrap: %v\n", err)
+			os.Exit(1)
+		}
+		sysinit := language.NewCall("Sys.init", 0)
+		err = sysinit.Translate(table, out)
+		if err != nil {
+			fmt.Printf("error writing bootstrap: %v\n", err)
+			os.Exit(1)
+		}
+
+	}
+
 	if info.IsDir() {
 		dir, err := os.Open(inputFileName)
 		if err != nil {
@@ -82,9 +104,9 @@ func main() {
 				continue
 			}
 			if verbose {
-				fmt.Print(f.Name())
+				fmt.Print(f.Name(), " ")
 			}
-			err = parseFile(out, filepath.Join(dir.Name(), f.Name()))
+			err = parseFile(out, table, filepath.Join(dir.Name(), f.Name()))
 			if err != nil {
 				fmt.Printf("parse error on file %s: %v\n", f.Name(), err)
 				os.Exit(1)
@@ -94,37 +116,58 @@ func main() {
 			}
 		}
 	} else {
-		err = parseFile(out, inputFileName)
+		err = parseFile(out, table, inputFileName)
 		if err != nil {
 			fmt.Printf("parse error on file %s: %v\n", inputFileName, err)
 			os.Exit(1)
 		}
 
 	}
+
+	if headless {
+		_, err = out.WriteString(`// END
+(END)
+@END
+0;JMP
+`)
+		if err != nil {
+			fmt.Printf("error writing halt: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
-func parseFile(wr io.Writer, fileName string) error {
+func parseFile(wr io.Writer, table *language.SymbolTable, fileName string) error {
 	fileBase := filepath.Base(fileName)
 	parts := strings.Split(fileBase, ".")
 	cfgName := parts[:len(parts)-1]
-
-	table := language.NewSymbolTable(strings.Join(cfgName, "."))
+	symbolTableFileName := strings.Join(cfgName, ".")
 
 	in, err := os.Open(fileName)
 	if err != nil {
-		return fmt.Errorf("error opening vm file: %v\n", err)
+		return fmt.Errorf("error opening vm file: %v", err)
 	}
 	defer in.Close()
 
+	if verbose {
+		fmt.Printf("parsing %s...\n", symbolTableFileName)
+	}
 	p := language.NewParser(in)
 
-	err = p.Run()
+	err = p.Run(table, symbolTableFileName)
 	if err != nil {
 		return err
 	}
 
 	for _, cmd := range p.Tree() {
-		cmd.Translate(table, wr)
+		if verbose {
+			fmt.Printf("  %+v\n", cmd)
+		}
+		err = cmd.Translate(table, wr)
+		if err != nil {
+			return err
+		}
+
 	}
 
 	return nil

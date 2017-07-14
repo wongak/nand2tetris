@@ -18,7 +18,7 @@ push constant 23
 pop argument 1
 	`
 	p := language.NewParser(strings.NewReader(code))
-	err := p.Run()
+	_, err := p.Run("")
 	if err != nil {
 		t.Errorf("unexpected error on parse: %v", err)
 		return
@@ -32,7 +32,7 @@ func TestMemPopOnConstantReturnsError(t *testing.T) {
 pop constant 12
 	`
 	p := language.NewParser(strings.NewReader(code))
-	err := p.Run()
+	_, err := p.Run("")
 	if err == nil {
 		t.Error("expect error")
 		return
@@ -50,7 +50,7 @@ push constant 12
 push pointer 3
 	`
 	p := language.NewParser(strings.NewReader(code))
-	err := p.Run()
+	_, err := p.Run("")
 	if err == nil {
 		t.Error("expect error")
 		return
@@ -70,7 +70,7 @@ func execParserTestCase(t *testing.T, c parserTestCase) {
 	rd := strings.NewReader(c.input)
 	p := language.NewParser(rd)
 
-	err := p.Run()
+	_, err := p.Run("")
 	if err != nil {
 		t.Errorf("error on parsing: %v", err)
 		return
@@ -87,10 +87,8 @@ func execParserTestCase(t *testing.T, c parserTestCase) {
 func TestLabelParser(t *testing.T) {
 	tst := parserTestCase{
 		input: `
-	function test 0
 	push constant 1
 	label ABC
-	return
 			`,
 		expected: []func(language.Command) bool{
 			func(cmd language.Command) bool {

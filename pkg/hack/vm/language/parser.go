@@ -19,8 +19,14 @@ type Parser struct {
 	tree []Command
 }
 
+// ParserContext gives all states a context
+type ParserContext struct {
+	file     *File
+	function *Function
+}
+
 // parser state machine
-type stateFunc func(p *Parser) stateFunc
+type stateFunc func(p *Parser, ctx ParserContext) (ParserContext, stateFunc)
 
 // NewParser creates a new parser on the given Reader r
 func NewParser(r io.Reader) *Parser {
@@ -30,12 +36,6 @@ func NewParser(r io.Reader) *Parser {
 
 		tree: make([]Command, 0),
 	}
-}
-
-// ReadNew sets a new reader to read from
-func (p *Parser) ReadNew(r io.Reader) {
-	p.s = NewScanner(r)
-	p.i = -1
 }
 
 func (p *Parser) scan() (tok Token, lit string, err error) {
@@ -77,9 +77,17 @@ func (p *Parser) scanIgnore() (tok Token, lit string, err error) {
 }
 
 // Run starts the parser
-func (p *Parser) Run() error {
+func (p *Parser) Run(table *SymbolTable, fileName string) error {
+	ctx := ParserContext{
+		file: &File{name: fileName},
+	}
+	_, err := table.RegisterFile(fileName)
+	if err != nil {
+		return err
+	}
+
 	for state := top; state != nil; {
-		state = state(p)
+		ctx, state = state(p, ctx)
 	}
 	if p.err != nil {
 		return fmt.Errorf("parse error on token %d (index %d): %v", p.i, p.s.i, p.err)
@@ -93,43 +101,53 @@ func (p *Parser) Tree() []Command {
 }
 
 func parseError(err error) stateFunc {
-	return func(p *Parser) stateFunc {
+	return func(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 		p.err = err
-		return nil
+		return ctx, nil
 	}
 }
 
 // top is the top level parser state machine
-func top(p *Parser) stateFunc {
+func top(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 	tok, lit, err := p.scanIgnore()
 	if err != nil {
-		return parseError(err)
+		return ctx, parseError(err)
 	}
 	switch true {
 	case tok == EOF:
-		return nil
+		return ctx, nil
 	case isMemoryAccessCommand(tok):
 		p.unscan()
-		return parseMemoryAccess(nil)
+		return ctx, parseMemoryAccess
 	case isArithmeticCommand(tok):
 		p.unscan()
-		return parseArithmetic(nil)
+		return ctx, parseArithmetic
+	case tok == LABEL:
+		p.unscan()
+		return ctx, parseLabel
+	case tok == IFGOTO:
+		p.unscan()
+		return ctx, parseIfGoto
+	case tok == GOTO:
+		p.unscan()
+		return ctx, parseGoto
 	case tok == FUNCTION:
 		p.unscan()
-		return parseFunction
-	case tok == LABEL:
-		return parseError(fmt.Errorf("invalid label token without function context"))
+		return ctx, parseFunction
+	case tok == CALL:
+		p.unscan()
+		return ctx, parseCall
+	case tok == RETURN:
+		p.unscan()
+		return ctx, parseReturn
 	}
-	return parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
+
+	return ctx, parseError(fmt.Errorf("invalid token %s (%s)", tok, lit))
 }
 
-func command(cmd Command, f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
+func command(cmd Command) stateFunc {
+	return func(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
 		p.tree = append(p.tree, cmd)
-		if f == nil {
-			return top
-		} else {
-			return parseFunctionBody(f)
-		}
+		return ctx, top
 	}
 }

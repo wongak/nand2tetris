@@ -79,6 +79,8 @@ func init() {
 type Arithmetic struct {
 	cmd Token
 	lit string
+
+	file *File
 }
 
 // String implements the Stringer
@@ -87,12 +89,17 @@ func (a *Arithmetic) String() string {
 }
 
 // Translate implementing the Command
-func (m *Arithmetic) Translate(t *SymbolTable, wr io.Writer) error {
+func (a *Arithmetic) Translate(t *SymbolTable, wr io.Writer) error {
+	ft, err := t.FileTable(a.file.name)
+	if err != nil {
+		return err
+	}
+
 	data := map[string]string{
-		"cmdLit": m.lit,
+		"cmdLit": a.lit,
 	}
 	tmpl := arithmeticOpTmpl
-	switch m.cmd {
+	switch a.cmd {
 	case ADD:
 		data["operation"] = "D=D+M"
 	case SUB:
@@ -108,38 +115,38 @@ func (m *Arithmetic) Translate(t *SymbolTable, wr io.Writer) error {
 		data["operation"] = "D=!D"
 		tmpl = arithmeticSingleOpTmpl
 	case EQ:
-		data["labelSet"] = t.Condition()
+		data["labelSet"] = ft.Condition()
 		tmpl = logicalCompTmpl
 		data["comp"] = "JEQ" // true if pop1 - pop2 = 0
 	case GT:
-		data["labelSet"] = t.Condition()
+		data["labelSet"] = ft.Condition()
 		tmpl = logicalCompTmpl
 		data["comp"] = "JLT" // true if pop1 - pop2 < 0
 	case LT:
-		data["labelSet"] = t.Condition()
+		data["labelSet"] = ft.Condition()
 		tmpl = logicalCompTmpl
 		data["comp"] = "JGT"
 	}
-	err := tmpl.Execute(wr, data)
+	err = tmpl.Execute(wr, data)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func parseArithmetic(f *Function) stateFunc {
-	return func(p *Parser) stateFunc {
-		tok, lit, err := p.scanIgnore()
-		if err != nil {
-			return parseError(err)
-		}
-		if !isArithmeticCommand(tok) {
-			return parseError(fmt.Errorf("invalid token %s (%s). epxect arithmetic/logical cmd", tok, lit))
-		}
-		cmd := &Arithmetic{
-			cmd: tok,
-			lit: lit,
-		}
-		return command(cmd, f)
+func parseArithmetic(p *Parser, ctx ParserContext) (ParserContext, stateFunc) {
+	tok, lit, err := p.scanIgnore()
+	if err != nil {
+		return ctx, parseError(err)
 	}
+	if !isArithmeticCommand(tok) {
+		return ctx, parseError(fmt.Errorf("invalid token %s (%s). epxect arithmetic/logical cmd", tok, lit))
+	}
+	cmd := &Arithmetic{
+		cmd: tok,
+		lit: lit,
+
+		file: ctx.file,
+	}
+	return ctx, command(cmd)
 }

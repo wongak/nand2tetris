@@ -7,7 +7,10 @@ import (
 )
 
 func TestSymbolStatic(t *testing.T) {
-	tbl := language.NewSymbolTable("testFile")
+	tbl, err := language.NewSymbolTable().RegisterFile("testFile")
+	if err != nil {
+		t.Fatal(err)
+	}
 	expect := "testFile.0"
 	got := tbl.Static(12)
 	if got != expect {
